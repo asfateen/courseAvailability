@@ -27,28 +27,41 @@ if not COOKIES:
     print("::error ::Missing NU_COOKIES secret")
     sys.exit(1)
 
-DATA = {
-    "endDateKey": 0,
-    "eventId": "",
-    "keywords": "arts-201",
-    "registrationtype": "TRAD",
-    "startDateKey": 0,
-    "period": "2025/FALL"
-}
+COURSES = ["arts-201", "ssci101"]
 
-def main():
+def check_course(course):
+    data = {
+        "endDateKey": 0,
+        "eventId": "",
+        "keywords": course,
+        "registrationtype": "TRAD",
+        "startDateKey": 0,
+        "period": "2025/FALL"
+    }
+
     try:
-        response = requests.post(URL, headers=HEADERS, cookies={"Cookie": COOKIES}, json=DATA)
+        response = requests.post(URL, headers=HEADERS, cookies={"Cookie": COOKIES}, json=data)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"::error ::Request failed: {e}")
-        sys.exit(1)
+        print(f"::error ::Request failed for {course}: {e}")
+        return False
 
     if '"isCartable":true' in response.text:
-        print("::warning ::Seats available! Go register NOW!")
-        sys.exit(1)  # exit with non-zero status so GitHub marks job as failed (red ❌)
+        print(f"::warning ::Seats available for {course.upper()}! Go register NOW!")
+        return True
     else:
-        print("No seats available yet.")
+        print(f"No seats available for {course.upper()}.")
+        return False
+
+def main():
+    available = False
+    for course in COURSES:
+        if check_course(course):
+            available = True
+
+    if available:
+        sys.exit(1)  # mark workflow as failed (so GitHub notifies you)
+    else:
         sys.exit(0)
 
 if __name__ == "__main__":
