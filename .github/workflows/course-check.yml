@@ -2,7 +2,7 @@ name: Course Seat Checker
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # run every 5 minutes
+    - cron: "*/3 * * * *"  # run every 5 minutes
   workflow_dispatch:       # allows manual trigger
 
 jobs:
