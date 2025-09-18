@@ -4,6 +4,11 @@ import sys
 
 URL = "https://register.nu.edu.eg/PowerCampusSelfService/Sections/AdvancedSearch"
 
+COOKIES = os.getenv("NU_COOKIES")
+if not COOKIES:
+    print("::error ::Missing NU_COOKIES secret")
+    sys.exit(1)
+
 HEADERS = {
     "accept": "application/json",
     "accept-language": "en-US,en;q=0.8",
@@ -19,13 +24,9 @@ HEADERS = {
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-origin",
     "sec-gpc": "1",
-    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "cookie": COOKIES.strip()  # ✅ Pass as raw header, strip newlines if any
 }
-
-COOKIES = os.getenv("NU_COOKIES")
-if not COOKIES:
-    print("::error ::Missing NU_COOKIES secret")
-    sys.exit(1)
 
 COURSES = ["arts-201", "ssci101"]
 
@@ -40,7 +41,7 @@ def check_course(course):
     }
 
     try:
-        response = requests.post(URL, headers=HEADERS, cookies={"Cookie": COOKIES}, json=data)
+        response = requests.post(URL, headers=HEADERS, json=data)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"::error ::Request failed for {course}: {e}")
@@ -54,15 +55,8 @@ def check_course(course):
         return False
 
 def main():
-    available = False
-    for course in COURSES:
-        if check_course(course):
-            available = True
-
-    if available:
-        sys.exit(1)  # mark workflow as failed (so GitHub notifies you)
-    else:
-        sys.exit(0)
+    available = any(check_course(course) for course in COURSES)
+    sys.exit(1 if available else 0)
 
 if __name__ == "__main__":
     main()
