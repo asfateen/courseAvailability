@@ -1,0 +1,26 @@
+name: Course Seat Checker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # run every 5 minutes
+  workflow_dispatch:       # allows manual trigger
+
+jobs:
+  check-seats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run seat checker
+        env:
+          NU_COOKIES: ${{ secrets.NU_COOKIES }}
+        run: python .github/scripts/check_course.py
