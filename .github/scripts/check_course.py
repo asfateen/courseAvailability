@@ -1,8 +1,14 @@
 import requests
 import os
 import sys
+import json
 
 URL = "https://register.nu.edu.eg/PowerCampusSelfService/Sections/AdvancedSearch"
+
+COOKIES = os.getenv("NU_COOKIES")
+if not COOKIES:
+    print("::error ::Missing NU_COOKIES secret")
+    sys.exit(1)
 
 HEADERS = {
     "accept": "application/json",
@@ -19,40 +25,70 @@ HEADERS = {
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-origin",
     "sec-gpc": "1",
-    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "cookie": COOKIES.strip()
 }
 
-COOKIES = os.getenv("NU_COOKIES")
-if not COOKIES:
-    print("::error ::Missing NU_COOKIES secret")
-    sys.exit(1)
+COURSES = ["arts-201", "ssci101"]
 
-DATA = {
-    "endDateKey": 0,
-    "eventId": "",
-    "keywords": "arts-201",
-    "registrationtype": "TRAD",
-    "startDateKey": 0,
-    "period": "2025/FALL"
-}
+def check_course(course):
+    data = {
+        "endDateKey": 0,
+        "eventId": "",
+        "keywords": course,
+        "registrationtype": "TRAD",
+        "startDateKey": 0,
+        "period": "2025/FALL"
+    }
 
-def main():
     try:
-        # pass cookies correctly as a single header
-        response = requests.post(URL, headers=HEADERS, headers={"Cookie": COOKIES}, json=DATA)
+        response = requests.post(URL, headers=HEADERS, json=data)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"::error ::Request failed: {e}")
-        sys.exit(1)
+        print(f"::error ::Request failed for {course}: {e}")
+        return None
 
-    if '"isCartable":true' in response.text:
-        print("::warning ::Seats available! Go register NOW!")
-        sys.exit(1)  # exit with non-zero status so GitHub marks job as failed (red ❌)
-    else:
-        print("No seats available yet.")
+    # Ensure it's valid JSON before processing
+    try:
+        result = response.json()
+    except ValueError:
+        print(f"::error ::Invalid JSON for {course}, maybe session expired?")
         print("Full server response:")
-        print(response.text)  # ✅ print full response for debugging
-        sys.exit(0)
+        print(response.text)
+        return None
+
+    # Debug: Check if result is empty
+    if not result:
+        print(f"::error ::Empty result for {course}, could be bad cookie/session expired")
+        print("Full server response:")
+        print(response.text)
+        return None
+
+    # Convert to string and check cartable status
+    text = response.text
+    if '"isCartable":true' in text:
+        print(f"::warning ::Seats available for {course.upper()}! Go register NOW!")
+        return True
+    else:
+        print(f"No seats available for {course.upper()}.")
+        # ✅ print full response for debugging
+        print("Full server response:")
+        try:
+            print(json.dumps(result, indent=2))
+        except Exception:
+            print(response.text)
+        return False
+
+def main():
+    any_available = False
+    for course in COURSES:
+        status = check_course(course)
+        if status is None:
+            # treat invalid result as an error (fail the action)
+            sys.exit(1)
+        elif status:
+            any_available = True
+    sys.exit(1 if any_available else 0)
 
 if __name__ == "__main__":
     main()
