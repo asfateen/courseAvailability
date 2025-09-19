@@ -25,7 +25,7 @@ HEADERS = {
     "sec-fetch-site": "same-origin",
     "sec-gpc": "1",
     "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-    "cookie": COOKIES.strip()  # ✅ Pass as raw header, strip newlines if any
+    "cookie": COOKIES.strip()
 }
 
 COURSES = ["arts-201", "ssci101"]
@@ -45,9 +45,23 @@ def check_course(course):
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"::error ::Request failed for {course}: {e}")
-        return False
+        return None
 
-    if '"isCartable":true' in response.text:
+    # Ensure it's valid JSON before processing
+    try:
+        result = response.json()
+    except ValueError:
+        print(f"::error ::Invalid JSON for {course}, maybe session expired?")
+        return None
+
+    # Debug: Check if result is empty
+    if not result:
+        print(f"::error ::Empty result for {course}, could be bad cookie/session expired")
+        return None
+
+    # Convert to string and check cartable status
+    text = response.text
+    if '"isCartable":true' in text:
         print(f"::warning ::Seats available for {course.upper()}! Go register NOW!")
         return True
     else:
@@ -55,8 +69,15 @@ def check_course(course):
         return False
 
 def main():
-    available = any(check_course(course) for course in COURSES)
-    sys.exit(1 if available else 0)
+    any_available = False
+    for course in COURSES:
+        status = check_course(course)
+        if status is None:
+            # treat invalid result as an error (fail the action)
+            sys.exit(1)
+        elif status:
+            any_available = True
+    sys.exit(1 if any_available else 0)
 
 if __name__ == "__main__":
     main()
