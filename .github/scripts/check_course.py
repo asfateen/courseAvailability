@@ -41,6 +41,10 @@ def check_course(course):
         "period": "2025/FALL"
     }
 
+    # Add meeting key if course is "arts-201"
+    if course.lower() == "arts-201":
+        data["meeting"] = "SUN"
+
     try:
         response = requests.post(URL, headers=HEADERS, json=data)
         response.raise_for_status()
